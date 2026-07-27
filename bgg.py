@@ -10,6 +10,10 @@ Uso: sudo python3 bgg_fixed.py
 
 import os, sys, subprocess, json, shutil
 
+# Evita "getcwd() failed" se lo script viene lanciato da dentro
+# /var/www/russi (che viene cancellata e ricreata qui sotto)
+os.chdir("/")
+
 PROJECT_ROOT = "/var/www/russi"
 CERTS_DIR = "/var/www/giveaway/certs"
 NGINX_AVAILABLE = "/etc/nginx/sites-available/russi.conf"
@@ -168,8 +172,8 @@ export default function App() {
       <div className="absolute inset-0 z-0">
         <PixelBlast
           variant="square"
-          pixelSize={4}
-          color="#838383"
+          pixelSize={6}
+          color="#aaaaaa"
           patternScale={2}
           patternDensity={1}
           pixelSizeJitter={0}
@@ -1011,7 +1015,7 @@ def main():
     if os.geteuid() != 0:
         print("❌ Esegui con sudo.")
         sys.exit(1)
-    print("🚀 Avvio setup RUSSI - PixelBlast FIXED v2 (Tailwind + z-index/stacking context)")
+    print("🚀 Avvio setup RUSSI - PixelBlast FIXED v3 (Tailwind + z-index/stacking + chdir fix)")
 
     if os.path.exists(PROJECT_ROOT):
         shutil.rmtree(PROJECT_ROOT)
