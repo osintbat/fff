@@ -163,9 +163,9 @@ import PixelBlast from './PixelBlast';
 
 export default function App() {
   return (
-    <div className="relative h-screen w-full overflow-hidden">
+    <div className="relative h-screen w-full overflow-hidden isolate">
       {/* Sfondo PixelBlast - riempie tutto lo schermo */}
-      <div className="absolute inset-0 -z-10">
+      <div className="absolute inset-0 z-0">
         <PixelBlast
           variant="square"
           pixelSize={4}
@@ -183,12 +183,12 @@ export default function App() {
           liquidWobbleSpeed={5}
           speed={0.5}
           edgeFade={0.25}
-          transparent={false}
+          transparent
         />
       </div>
 
-      {/* Titolo centrato con z-index alto sopra il canvas */}
-      <div className="flex items-center justify-center h-full w-full px-6 py-16 relative z-10">
+      {/* Titolo centrato con z-index alto sopra il canvas, non blocca i click sul canvas */}
+      <div className="flex items-center justify-center h-full w-full px-6 py-16 relative z-10 pointer-events-none">
         <h1 className="font-anton text-white text-center leading-none tracking-wide text-[3rem] md:text-[7rem] lg:text-[9rem] drop-shadow-[0_0_30px_rgba(0,0,0,0.8)]">
           I RUSSI
         </h1>
@@ -1011,7 +1011,7 @@ def main():
     if os.geteuid() != 0:
         print("❌ Esegui con sudo.")
         sys.exit(1)
-    print("🚀 Avvio setup RUSSI - PixelBlast FIXED (Tailwind configurato correttamente)")
+    print("🚀 Avvio setup RUSSI - PixelBlast FIXED v2 (Tailwind + z-index/stacking context)")
 
     if os.path.exists(PROJECT_ROOT):
         shutil.rmtree(PROJECT_ROOT)
