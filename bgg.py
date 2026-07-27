@@ -125,12 +125,9 @@ import StarField from './StarField';
 export default function App() {
   return (
     <div className="relative h-screen w-full">
-      {/* Sfondo stellare 3D */}
       <div className="absolute inset-0 -z-10">
         <StarField />
       </div>
-
-      {/* Titolo centrato */}
       <div className="flex items-center justify-center h-full px-6 py-16">
         <h1 className="font-anton text-white text-center leading-none text-[3rem] md:text-[7rem] lg:text-[9rem]">
           I RUSSI
@@ -151,7 +148,6 @@ export default function StarField() {
     const container = containerRef.current;
     if (!container) return;
 
-    // Scene
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({
@@ -163,7 +159,6 @@ export default function StarField() {
     renderer.setClearColor(0x000000, 1);
     container.appendChild(renderer.domElement);
 
-    // Crea texture glow per le stelle
     const canvas = document.createElement('canvas');
     canvas.width = 64;
     canvas.height = 64;
@@ -176,7 +171,6 @@ export default function StarField() {
     ctx.fillRect(0, 0, 64, 64);
     const texture = new THREE.CanvasTexture(canvas);
 
-    // Stelle
     const starCount = 4000;
     const positions = new Float32Array(starCount * 3);
     const colors = new Float32Array(starCount * 3);
@@ -226,7 +220,6 @@ export default function StarField() {
     const stars = new THREE.Points(geometry, material);
     scene.add(stars);
 
-    // Stelle piccole di sfondo (senza glow)
     const bgStarCount = 2000;
     const bgPositions = new Float32Array(bgStarCount * 3);
     for (let i = 0; i < bgStarCount; i++) {
@@ -253,7 +246,6 @@ export default function StarField() {
 
     camera.position.z = 30;
 
-    // Animazione
     let frameId = 0;
     const animate = () => {
       frameId = requestAnimationFrame(animate);
@@ -265,7 +257,6 @@ export default function StarField() {
     };
     animate();
 
-    // Resize
     const resize = () => {
       const w = container.clientWidth;
       const h = container.clientHeight;
@@ -275,7 +266,6 @@ export default function StarField() {
     };
     window.addEventListener('resize', resize);
 
-    // Cleanup
     return () => {
       cancelAnimationFrame(frameId);
       window.removeEventListener('resize', resize);
@@ -367,7 +357,7 @@ def main():
     if os.geteuid() != 0:
         print("❌ Esegui con sudo.")
         sys.exit(1)
-    print("🚀 Avvio setup RUSSI - Campo stellare 3D (Three.js puro, garantito)")
+    print("🚀 Avvio setup RUSSI - Campo stellare 3D con glow")
 
     if os.path.exists(PROJECT_ROOT):
         shutil.rmtree(PROJECT_ROOT)
@@ -474,9 +464,8 @@ server {{
     run("systemctl reload nginx")
 
     print(f"\n✅ Sito RUSSI live su https://{DOMAIN}")
-    print("✅ Campo stellare 3D con glow (garantito funzionante)")
-    print("✅ Titolo 'I RUSSI' centrato con font Anton")
-    print("📌 Se non vedi le stelle, apri console F12 per errori")
+    print("✅ Campo stellare 3D con glow")
+    print("✅ Titolo 'I RUSSI' centrato perfettamente")
 
 if __name__ == "__main__":
     main()
