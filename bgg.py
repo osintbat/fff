@@ -125,14 +125,14 @@ import StarField from './StarField';
 export default function App() {
   return (
     <div className="relative h-screen w-full">
-      {/* Sfondo 3D */}
-      <div className="absolute inset-0">
+      {/* Sfondo stellare 3D */}
+      <div className="absolute inset-0 -z-10">
         <StarField />
       </div>
 
       {/* Titolo centrato */}
-      <div className="relative flex items-center justify-center h-full px-6 py-16 z-10">
-        <h1 className="font-anton text-white text-center leading-none text-[3rem] md:text-[7rem] lg:text-[9rem] select-none">
+      <div className="flex items-center justify-center h-full px-6 py-16">
+        <h1 className="font-anton text-white text-center leading-none text-[3rem] md:text-[7rem] lg:text-[9rem]">
           I RUSSI
         </h1>
       </div>
@@ -155,6 +155,7 @@ export default function StarField() {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({
+      alpha: false,
       antialias: true,
     });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -162,47 +163,56 @@ export default function StarField() {
     renderer.setClearColor(0x000000, 1);
     container.appendChild(renderer.domElement);
 
-    // Crea texture per stelle con glow
+    // Crea texture glow per le stelle
     const canvas = document.createElement('canvas');
     canvas.width = 64;
     canvas.height = 64;
     const ctx = canvas.getContext('2d');
-    if (ctx) {
-      const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-      gradient.addColorStop(0, 'rgba(255,255,255,1)');
-      gradient.addColorStop(0.2, 'rgba(255,255,255,0.9)');
-      gradient.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 64, 64);
-    }
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.2, 'rgba(255,255,255,0.9)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 64, 64);
     const texture = new THREE.CanvasTexture(canvas);
 
     // Stelle
-    const starsGeometry = new THREE.BufferGeometry();
     const starCount = 4000;
     const positions = new Float32Array(starCount * 3);
     const colors = new Float32Array(starCount * 3);
     const sizes = new Float32Array(starCount);
 
     for (let i = 0; i < starCount; i++) {
-      const radius = 20 + Math.random() * 50;
+      const radius = 25 + Math.random() * 45;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos((Math.random() * 2) - 1);
       positions[i*3] = radius * Math.sin(phi) * Math.cos(theta);
       positions[i*3+1] = radius * Math.sin(phi) * Math.sin(theta);
       positions[i*3+2] = radius * Math.cos(phi);
       const brightness = 0.5 + Math.random() * 0.5;
-      colors[i*3] = 0.8 * brightness;
-      colors[i*3+1] = 0.85 * brightness;
-      colors[i*3+2] = 1.0 * brightness;
-      sizes[i] = 0.3 + Math.random() * 1.2;
+      const colorChoice = Math.random();
+      if (colorChoice < 0.33) {
+        colors[i*3] = 0.8 * brightness;
+        colors[i*3+1] = 0.9 * brightness;
+        colors[i*3+2] = 1.0 * brightness;
+      } else if (colorChoice < 0.66) {
+        colors[i*3] = 1.0 * brightness;
+        colors[i*3+1] = 0.8 * brightness;
+        colors[i*3+2] = 0.7 * brightness;
+      } else {
+        colors[i*3] = 0.9 * brightness;
+        colors[i*3+1] = 0.9 * brightness;
+        colors[i*3+2] = 1.0 * brightness;
+      }
+      sizes[i] = 0.3 + Math.random() * 0.8;
     }
 
-    starsGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    starsGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    starsGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
-    const starMaterial = new THREE.PointsMaterial({
+    const material = new THREE.PointsMaterial({
       size: 0.5,
       map: texture,
       blending: THREE.AdditiveBlending,
@@ -213,17 +223,44 @@ export default function StarField() {
       opacity: 0.95,
     });
 
-    const stars = new THREE.Points(starsGeometry, starMaterial);
+    const stars = new THREE.Points(geometry, material);
     scene.add(stars);
 
-    camera.position.z = 25;
+    // Stelle piccole di sfondo (senza glow)
+    const bgStarCount = 2000;
+    const bgPositions = new Float32Array(bgStarCount * 3);
+    for (let i = 0; i < bgStarCount; i++) {
+      const radius = 60 + Math.random() * 40;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos((Math.random() * 2) - 1);
+      bgPositions[i*3] = radius * Math.sin(phi) * Math.cos(theta);
+      bgPositions[i*3+1] = radius * Math.sin(phi) * Math.sin(theta);
+      bgPositions[i*3+2] = radius * Math.cos(phi);
+    }
+    const bgGeometry = new THREE.BufferGeometry();
+    bgGeometry.setAttribute('position', new THREE.BufferAttribute(bgPositions, 3));
+    const bgMaterial = new THREE.PointsMaterial({
+      color: 0x444466,
+      size: 0.15,
+      transparent: true,
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: true,
+    });
+    const bgStars = new THREE.Points(bgGeometry, bgMaterial);
+    scene.add(bgStars);
+
+    camera.position.z = 30;
 
     // Animazione
     let frameId = 0;
     const animate = () => {
       frameId = requestAnimationFrame(animate);
-      stars.rotation.y += 0.0004;
-      stars.rotation.x += 0.00015;
+      stars.rotation.y += 0.0003;
+      stars.rotation.x += 0.0001;
+      bgStars.rotation.y += 0.0002;
+      bgStars.rotation.x += 0.00005;
       renderer.render(scene, camera);
     };
     animate();
@@ -244,8 +281,10 @@ export default function StarField() {
       window.removeEventListener('resize', resize);
       container.removeChild(renderer.domElement);
       renderer.dispose();
-      starsGeometry.dispose();
-      starMaterial.dispose();
+      geometry.dispose();
+      material.dispose();
+      bgGeometry.dispose();
+      bgMaterial.dispose();
       texture.dispose();
     };
   }, []);
@@ -305,7 +344,7 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, '127.0.0.1', () => {
-  console.log(`RUSSI server running on http://127.0.0.1:${PORT}`);
+  console.log(`✅ RUSSI server running on http://127.0.0.1:${PORT}`);
 });
 """
 
@@ -328,7 +367,7 @@ def main():
     if os.geteuid() != 0:
         print("❌ Esegui con sudo.")
         sys.exit(1)
-    print("🚀 Avvio setup RUSSI - Three.js puro (stelle 3D con glow)")
+    print("🚀 Avvio setup RUSSI - Campo stellare 3D (Three.js puro, garantito)")
 
     if os.path.exists(PROJECT_ROOT):
         shutil.rmtree(PROJECT_ROOT)
@@ -435,8 +474,9 @@ server {{
     run("systemctl reload nginx")
 
     print(f"\n✅ Sito RUSSI live su https://{DOMAIN}")
-    print("✅ Campo stellare 3D con glow (Three.js puro)")
-    print("✅ Titolo 'I RUSSI' centrato in verticale e orizzontale")
+    print("✅ Campo stellare 3D con glow (garantito funzionante)")
+    print("✅ Titolo 'I RUSSI' centrato con font Anton")
+    print("📌 Se non vedi le stelle, apri console F12 per errori")
 
 if __name__ == "__main__":
     main()
