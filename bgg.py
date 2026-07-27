@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
 RUSSI - Progetto con PixelBlast (Three.js + postprocessing)
-Genera un sito con sfondo interattivo PixelBlast e titolo "I RUSSI" centrato.
-FIX: aggiunta configurazione Tailwind CSS (mancava tailwindcss/postcss/autoprefixer,
-     tailwind.config.js e postcss.config.js -> per questo la pagina usciva bianca
-     e senza stili, con solo il testo "I RUSSI" non formattato).
-Uso: sudo python3 bgg_fixed.py
+Sito con sfondo interattivo PixelBlast, titolo "I RUSSI" centrato,
+navbar con pulsante "Profile" che porta a /profiles (pagina "coming soon"
+con effetto testo scrambled via GSAP).
+
+Uso: sudo python3 deploy_russi.py
 """
 
-import os, sys, subprocess, json, shutil
+import os, sys, subprocess, shutil
 
 # Evita "getcwd() failed" se lo script viene lanciato da dentro
 # /var/www/russi (che viene cancellata e ricreata qui sotto)
@@ -41,9 +41,12 @@ PACKAGE_JSON = """{
     "express-rate-limit": "^7.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "react-icons": "^5.3.0",
     "dotenv": "^16.4.5",
     "three": "^0.170.0",
-    "postprocessing": "^6.36.0"
+    "postprocessing": "^6.36.0",
+    "gsap": "^3.12.5"
   },
   "devDependencies": {
     "@types/react": "^18.3.5",
@@ -106,6 +109,7 @@ export default {
     extend: {
       fontFamily: {
         anton: ['Anton', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
       },
     },
   },
@@ -129,7 +133,7 @@ INDEX_HTML = """<!doctype html>
     <title>RUSSI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   </head>
   <body>
     <div id="root"></div>
@@ -140,6 +144,7 @@ INDEX_HTML = """<!doctype html>
 
 MAIN_TSX = """import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
 
@@ -147,7 +152,9 @@ const root = document.getElementById('root');
 if (root) {
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
-      <App />
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
     </React.StrictMode>
   );
 }
@@ -163,11 +170,47 @@ INDEX_CSS = """@tailwind base;
 """
 
 APP_TSX = """import React from 'react';
-import PixelBlast from './PixelBlast';
+import { Routes, Route } from 'react-router-dom';
+import Home from './pages/Home';
+import Profiles from './pages/Profiles';
 
 export default function App() {
   return (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/profiles" element={<Profiles />} />
+    </Routes>
+  );
+}
+"""
+
+NAVBAR_TSX = """import React from 'react';
+import { useNavigate } from 'react-router-dom';
+
+export default function Navbar() {
+  const navigate = useNavigate();
+  return (
+    <nav className="absolute top-0 left-0 w-full z-20 flex items-center justify-end px-6 py-5 pointer-events-none">
+      <button
+        onClick={() => navigate('/profiles')}
+        className="pointer-events-auto font-mono text-sm tracking-widest uppercase text-white/80 border border-white/20 rounded-full px-5 py-2 hover:text-white hover:border-white/50 transition-colors duration-200"
+      >
+        Profile
+      </button>
+    </nav>
+  );
+}
+"""
+
+HOME_TSX = """import React from 'react';
+import PixelBlast from '../PixelBlast';
+import Navbar from '../Navbar';
+
+export default function Home() {
+  return (
     <div className="relative h-screen w-full overflow-hidden isolate">
+      <Navbar />
+
       {/* Sfondo PixelBlast - riempie tutto lo schermo */}
       <div className="absolute inset-0 z-0">
         <PixelBlast
@@ -199,6 +242,123 @@ export default function App() {
       </div>
     </div>
   );
+}
+"""
+
+PROFILES_TSX = """import React from 'react';
+import ScrambledText from '../ScrambledText';
+
+export default function Profiles() {
+  return (
+    <div className="relative h-screen w-full overflow-hidden bg-black flex items-center justify-center px-6">
+      <ScrambledText
+        className="text-center"
+        radius={120}
+        duration={1.2}
+        speed={0.5}
+        scrambleChars=".:"
+      >
+        Coming soon.
+      </ScrambledText>
+    </div>
+  );
+}
+"""
+
+SCRAMBLED_TEXT_TSX = """import React, { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
+import { SplitText } from 'gsap/SplitText';
+import { ScrambleTextPlugin } from 'gsap/ScrambleTextPlugin';
+import './ScrambledText.css';
+
+gsap.registerPlugin(SplitText, ScrambleTextPlugin);
+
+export interface ScrambledTextProps {
+  radius?: number;
+  duration?: number;
+  speed?: number;
+  scrambleChars?: string;
+  className?: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}
+
+const ScrambledText: React.FC<ScrambledTextProps> = ({
+  radius = 100,
+  duration = 1.2,
+  speed = 0.5,
+  scrambleChars = '.:',
+  className = '',
+  style = {},
+  children
+}) => {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const charsRef = useRef<HTMLElement[]>([]);
+
+  useEffect(() => {
+    if (!rootRef.current) return;
+    const split = SplitText.create(rootRef.current.querySelector('p'), {
+      type: 'chars',
+      charsClass: 'char'
+    });
+    charsRef.current = split.chars as HTMLElement[];
+    charsRef.current.forEach(c => {
+      gsap.set(c, {
+        display: 'inline-block',
+        attr: { 'data-content': c.innerHTML }
+      });
+    });
+
+    const handleMove = (e: PointerEvent) => {
+      charsRef.current.forEach(c => {
+        const { left, top, width, height } = c.getBoundingClientRect();
+        const dx = e.clientX - (left + width / 2);
+        const dy = e.clientY - (top + height / 2);
+        const dist = Math.hypot(dx, dy);
+        if (dist < radius) {
+          gsap.to(c, {
+            overwrite: true,
+            duration: duration * (1 - dist / radius),
+            scrambleText: {
+              text: (c as HTMLElement).dataset.content || '',
+              chars: scrambleChars,
+              speed
+            },
+            ease: 'none'
+          });
+        }
+      });
+    };
+
+    const el = rootRef.current;
+    el.addEventListener('pointermove', handleMove);
+    return () => {
+      el.removeEventListener('pointermove', handleMove);
+      split.revert();
+    };
+  }, [radius, duration, speed, scrambleChars]);
+
+  return (
+    <div ref={rootRef} className={`text-block ${className}`} style={style}>
+      <p>{children}</p>
+    </div>
+  );
+};
+
+export default ScrambledText;
+"""
+
+SCRAMBLED_TEXT_CSS = """.text-block {
+  margin: 7vw;
+  max-width: 800px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(20px, 6vw, 48px);
+  color: #fff;
+  text-align: center;
+}
+.char {
+  will-change: transform;
+  display: inline-block;
 }
 """
 
@@ -715,7 +875,6 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         uniforms.uPixelSize.value = pixelSize * renderer.getPixelRatio();
       };
 
-      // Forza resize subito e dopo 100ms
       setSize();
       setTimeout(setSize, 100);
       setTimeout(setSize, 500);
@@ -986,13 +1145,15 @@ app.use(express.static(path.join(__dirname, 'dist'), {
   setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
 }));
 
+// SPA fallback: qualsiasi rotta (incluso /profiles) serve index.html,
+// React Router gestisce il routing lato client.
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, '127.0.0.1', () => {
-  console.log(`✅ RUSSI server running on http://127.0.0.1:${PORT}`);
+  console.log(`RUSSI server running on http://127.0.0.1:${PORT}`);
 });
 """
 
@@ -1001,7 +1162,7 @@ def run(cmd, cwd=None, check=True):
     print(f"$ {cmd}")
     result = subprocess.run(cmd, shell=True, cwd=cwd)
     if check and result.returncode != 0:
-        print(f"❌ Comando fallito: {cmd}")
+        print(f"Comando fallito: {cmd}")
         sys.exit(1)
     return result.returncode
 
@@ -1009,22 +1170,22 @@ def write(path, content):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
         f.write(content)
-    print(f"✅ Scritto: {path}")
+    print(f"Scritto: {path}")
 
 def main():
     if os.geteuid() != 0:
-        print("❌ Esegui con sudo.")
+        print("Esegui con sudo.")
         sys.exit(1)
-    print("🚀 Avvio setup RUSSI - PixelBlast FIXED v3 (Tailwind + z-index/stacking + chdir fix)")
+    print("Avvio setup RUSSI (navbar + /profiles coming-soon)")
 
     if os.path.exists(PROJECT_ROOT):
         shutil.rmtree(PROJECT_ROOT)
-        print("✅ Vecchia cartella rimossa.")
+        print("Vecchia cartella rimossa.")
 
     try:
         subprocess.run(["id", SERVICE_USER], check=True, capture_output=True)
-        print(f"✅ Utente {SERVICE_USER} già esistente.")
-    except:
+        print(f"Utente {SERVICE_USER} già esistente.")
+    except Exception:
         run(f"useradd --system --no-create-home --shell /usr/sbin/nologin {SERVICE_USER}")
 
     write(os.path.join(PROJECT_ROOT, "package.json"), PACKAGE_JSON)
@@ -1037,26 +1198,31 @@ def main():
     write(os.path.join(PROJECT_ROOT, "src", "main.tsx"), MAIN_TSX)
     write(os.path.join(PROJECT_ROOT, "src", "index.css"), INDEX_CSS)
     write(os.path.join(PROJECT_ROOT, "src", "App.tsx"), APP_TSX)
+    write(os.path.join(PROJECT_ROOT, "src", "Navbar.tsx"), NAVBAR_TSX)
+    write(os.path.join(PROJECT_ROOT, "src", "pages", "Home.tsx"), HOME_TSX)
+    write(os.path.join(PROJECT_ROOT, "src", "pages", "Profiles.tsx"), PROFILES_TSX)
+    write(os.path.join(PROJECT_ROOT, "src", "ScrambledText.tsx"), SCRAMBLED_TEXT_TSX)
+    write(os.path.join(PROJECT_ROOT, "src", "ScrambledText.css"), SCRAMBLED_TEXT_CSS)
     write(os.path.join(PROJECT_ROOT, "src", "PixelBlast.tsx"), PIXELBLAST_TSX)
     write(os.path.join(PROJECT_ROOT, "src", "PixelBlast.css"), PIXELBLAST_CSS)
 
-    print("\n📦 Installazione dipendenze...")
+    print("\nInstallazione dipendenze (npm install, incluse gsap e react-icons)...")
     run("npm install", cwd=PROJECT_ROOT)
 
-    print("\n🔨 Build del progetto...")
+    print("\nBuild del progetto...")
     run("npm run build", cwd=PROJECT_ROOT)
 
     if not os.path.exists(os.path.join(PROJECT_ROOT, "dist", "index.html")):
-        print("❌ Build fallita - index.html non trovato in dist/")
+        print("Build fallita - index.html non trovato in dist/")
         sys.exit(1)
-    print("✅ Build completata con successo!")
+    print("Build completata con successo!")
 
-    print("\n🔐 Impostazione permessi...")
+    print("\nImpostazione permessi...")
     run(f"chown -R {SERVICE_USER}:{SERVICE_USER} {PROJECT_ROOT}")
     run(f"find {PROJECT_ROOT} -type d -exec chmod 755 {{}} \\;")
     run(f"find {PROJECT_ROOT} -type f -exec chmod 644 {{}} \\;")
 
-    print("\n⚙️ Configurazione servizio systemd...")
+    print("\nConfigurazione servizio systemd...")
     service = f"""[Unit]
 Description=RUSSI single page site
 After=network.target
@@ -1084,15 +1250,15 @@ WantedBy=multi-user.target
     run("systemctl enable russi")
     run("systemctl restart russi")
 
-    print("\n🌐 Configurazione Nginx...")
+    print("\nConfigurazione Nginx...")
     old_conf = "/etc/nginx/sites-available/giveaway.conf"
     old_en = "/etc/nginx/sites-enabled/giveaway.conf"
     if os.path.islink(old_en) or os.path.exists(old_en):
         os.remove(old_en)
-        print(f"✅ Rimosso {old_en}")
+        print(f"Rimosso {old_en}")
     if os.path.exists(old_conf):
         os.remove(old_conf)
-        print(f"✅ Rimosso {old_conf}")
+        print(f"Rimosso {old_conf}")
 
     nginx_conf = f"""server {{
     listen 80; listen [::]:80;
@@ -1125,16 +1291,15 @@ server {{
     write(NGINX_AVAILABLE, nginx_conf)
     if not os.path.islink(NGINX_ENABLED):
         os.symlink(NGINX_AVAILABLE, NGINX_ENABLED)
-        print(f"✅ Symlink creato: {NGINX_ENABLED}")
+        print(f"Symlink creato: {NGINX_ENABLED}")
 
     run("nginx -t")
     run("systemctl reload nginx")
 
-    print(f"\n✅ Sito RUSSI live su https://{DOMAIN}")
-    print("✅ Tailwind configurato: sfondo NERO + titolo 'I RUSSI' centrato dovrebbero ora essere visibili!")
-    print("📌 Clicca sullo schermo per generare onde d'effetto")
-    print("📌 Muovi il mouse per interagire (se liquid è attivato)")
-    print("📌 Font Anton caricato da Google Fonts")
+    print(f"\nSito RUSSI live su https://{DOMAIN}")
+    print("Home: titolo 'I RUSSI' + sfondo PixelBlast + navbar con pulsante 'Profile'.")
+    print("Il pulsante 'Profile' porta a /profiles, che mostra 'Coming soon.' con effetto scrambled-text al passaggio del mouse.")
+    print("Quando avrai la tua pagina custom per /profiles, sostituisci src/pages/Profiles.tsx e rilancia npm run build.")
 
 if __name__ == "__main__":
     main()
